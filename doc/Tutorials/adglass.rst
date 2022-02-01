@@ -84,7 +84,7 @@ Then press `enter` to accept default settings.
   platform (see :ref:`installation` for more details). :envvar:`QUIP_ROOT`
   refers to the directory where the the QUIP source code is located.
 
-To make the command `crack` availale, copy the executable
+To make the command `crack` available, copy the executable
 ``${QUIP_ROOT}/build/${QUIP_ARCH}`` to a directory on your :envvar:`PATH`,
 e.g. ``~/bin``.
 
@@ -92,7 +92,7 @@ Similarly, to compile `eval` run::
 
   $ make QUIP_Programs/eval
 
-It is highly recommended to change the name when copying the `eval` prgram to a
+It is highly recommended to change the name when copying the `eval` program to a
 directory on :envvar:`PATH` to avoid a clash with the builtin ``eval`` command.
 
 Start the simulation by running the `crack` program, which takes
@@ -153,7 +153,7 @@ relatively small so a thermostat is used to regulate the
 temperature. The accelerating crack gives out a lot of energy, and
 since the thermostat used here is relatively weak, to avoid unduly
 influencing the dynamics, the temperature will initially rise before
-settling down once the crack reaches its equilbirum velocity.
+settling down once the crack reaches its equilibrium velocity.
 
 Keep your crack simulation running as you proceed with the next parts
 of the tutorial (avoid closing the terminal in which you started the
@@ -267,7 +267,7 @@ the file containing the unit cell and `param_file` is the potential
 parameters. `cij` tells the `eval` program that we want it to
 calculate the elastic constants; this is done using the virial stress
 tensor. Have a look inside `TS_params.xml` to see the values which
-give the potential parameters controlling short range repsulsion,
+give the potential parameters controlling short range repulsion,
 Yukawa-screened Coulomb interaction and dipole polarisability. For
 example you can see that oxygen (atomic number 8) is polarisable in
 this model and silicon (atomic number 14) is not.
@@ -299,7 +299,7 @@ only two strain patterns: :math:`\epsilon_{xx}` and
 :math:`\epsilon_{yy}+\epsilon_{zz}`.
 
 If you like, you could try using the following `quippy` code to
-evaluate :math:`C` taking the cystal symmetry into account to see how
+evaluate :math:`C` taking the crystal symmetry into account to see how
 the results differ from those obtained with `eval`. ::
 
    p = Potential('IP TS', param_filename='TS_params.xml')
@@ -309,7 +309,7 @@ Which components are most different? Why do you think this is? Think
 about the effect of internal relaxation: compare with the values of
 the :math:`C^0_{ij}` tensor obtained if internal relaxation is not
 allowed (use the `c0ij` option to the `eval` program). Why do you
-think some components are particularily sensitive to internal
+think some components are particularly sensitive to internal
 relaxation?
 
 Young's Modulus and Poisson Ratio
@@ -509,7 +509,7 @@ system. Load this file into `quippy` and rescale it as follows::
 
 Replace `new_strain` with the target strain which should be between
 0.15 and 0.30. If you inspect the new file `quartz_crack_rescaled.xyz`
-you should see it's identical to the orignal apart from the rescaling
+you should see it's identical to the original apart from the rescaling
 in the `x` and `y` directions (not along `z` since the system is
 periodic in that direction). Copy the bulk cell and XML parameters and
 start a new crack simulation::
@@ -525,7 +525,7 @@ between frames is 10 fs) or by plotting the crack position as a
 function of time by extracting lines starting with `CRACK_TIP` from
 the output file (you might find this :download:`crack-velo.sh` script
 useful to do this; note however that the crack tip position is found
-using the atomic coordination numbers so if thre are defects in your
+using the atomic coordination numbers so if there are defects in your
 cell it will not work correctly).
 
 Energy Release Rate for Dynamic Fracture

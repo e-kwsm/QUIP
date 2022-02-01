@@ -52,7 +52,7 @@ For the QM/MM simulation, we first need to initialise the classical SW potential
 to be combined into a hybrid QM/MM potential (`qmmm_pot`), which mixes the QM
 and MM forces.
 
-Leave the initialisiton of the SW classical potential as it is. After this, we
+Leave the initialisation of the SW classical potential as it is. After this, we
 want to add some lines of code to setup the QM potential. Using the same
 :class:`~quippy.potential.Potential` class, we initialise now the Density
 functional tight binding (DFTB) potential. This is done by passing the new QM
@@ -102,7 +102,7 @@ Now, we can set up the list of atoms in the initial QM region using
 the :func:`~quippy.lotf.update_hysteretic_qm_region` function, defined
 in quippy. Here we need to provide the :class:`~.Atoms` system, the
 centre of the QM region (i.e. the position of the crack tip), and the
-the inner and outer radius of the :ref:`hysteretic <hysteretic>` QM
+inner and outer radius of the :ref:`hysteretic <hysteretic>` QM
 region. Note that the `old_qm_list` attribute must be an empty list
 (``[]``) in this initial case::
 
@@ -225,7 +225,7 @@ writes to the trajectory file if the state of the dynamical systems is
             trajectory.write(dynamics.atoms)
 
 As before, we attach this function to the dynamical system, passing
-`traj_interval` and and extra argument of `dynamics` which gets passed along to the
+`traj_interval` and extra argument of `dynamics` which gets passed along to the
 `traj_writer` function (see the :meth:`~quippy.lotf.LOTFDynamics.attach`
 method)::
 
@@ -432,7 +432,7 @@ release rate, and is much more brittle, with none of the artificial plasticity
 seen with the classical potential alone.
 
 Note that if you continue the LOTF dynamics, however, we may see some defects in
-the frature surface after the crack has propagated for a few nm. These are
+the fracture surface after the crack has propagated for a few nm. These are
 associated with the relatively small system and high strain rate we are using
 here, which leads to fracture at high energies and possibly to high speed
 fracture instabilities [Fineberg1991]_. If you have time you can investigate

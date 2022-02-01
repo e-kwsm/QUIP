@@ -33,7 +33,7 @@ Copyright 2006-2021.
 Most of the publicly available version is released under the GNU
 General Public license, version 2, with some portions in the public
 domain. The GAP code, included as a submodule, is distributed under
-a non-commerical [academic source license](https://github.com/libAtoms/GAP/blob/main/LICENSE.md)
+a non-commercial [academic source license](https://github.com/libAtoms/GAP/blob/main/LICENSE.md)
 
 ## Citing QUIP, quippy and GAP
 
@@ -150,7 +150,7 @@ much more widely used, but QUIP has a number of unique features:
 ## Binary Installation of QUIP and quippy
 
 Binary wheels for QUIP and the associated quippy Python bindings 
-that provide interopability with the Atomic Simulation Environment (ASE) are
+that provide interoperability with the Atomic Simulation Environment (ASE) are
 available from the [Python package index](https://pypi.org/project/quippy-ase/)
 (PyPI) under the package name `quippy-ase`.
 This means you can install the latest release with:

@@ -408,7 +408,7 @@ stress tensor, which is given by
    )
 
 where :math:`k` and :math:`l` are atom indices, :math:`ijk` are Cartesian
-indicies, :math:`\Omega` is the cell volume, :math:`m^{(k)}`,
+indices, :math:`\Omega` is the cell volume, :math:`m^{(k)}`,
 :math:`u^{(k)}`, :math:`x^{(k)}` and :math:`f^{(k)}` are respectively the
 mass, velocity, position of atom :math:`k` and :math:`f^{kl}_j` is
 the :math:`j`\ th component of the force between atoms :math:`k` and
@@ -466,7 +466,7 @@ contributions made by the random thermal motion of atoms. The
 moving average of the stress field when finding the tip. This average
 is stored in the ``avg_sigma`` :attr:`array entry
 <~quippy.atoms.Atoms.arrays>` inside the Atoms object, which is saved
-with each frame in the trajectory. For techical reasons this is stored
+with each frame in the trajectory. For technical reasons this is stored
 as a reshaped array of shape ``(len(atoms), 9)`` rather than
 ``(len(atoms), 3, 3)`` array, so you can find the :math:`sigma_{yy}`
 components in the 5th column (counting from zero as usual in Python),
@@ -488,7 +488,7 @@ Geometry and coordination analysis
 Press `k` to colour the atoms by coordination. This is based on the
 :attr:`~.Atoms.nneightol` attribute of the Atoms object, which we set
 to a value of 1.3 in the ``make_crack.py`` script. This factor acts as
-a multipler for the covalent radii of the atomic species, taken from
+a multiplier for the covalent radii of the atomic species, taken from
 the :attr:`quippy.periodictable.ElementCovRad` array. You can check
 the maximum Si--Si bond-length this corresponds to with::
 

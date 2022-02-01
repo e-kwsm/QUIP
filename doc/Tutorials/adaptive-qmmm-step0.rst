@@ -6,7 +6,7 @@ Scope of the tutorial
 
 In this tutorial, we will carry out classical and hybrid multiscale
 QM/MM (quantum mechanics/molecular mechanics) molecular dynamics
-simulations using the Learn on the Fly (LOTF) schmee for fracture in
+simulations using the Learn on the Fly (LOTF) scheme for fracture in
 silicon. For the classical simulations we will use the
 Stillinger-Weber [Stillinger1985]_ interatomic potential, which
 provides a generally good description of many properties of silicon,
