@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 import sys, os
 
 # obtain list of users with access to our repo
@@ -25,5 +25,5 @@ for user in users:
 
 # Print two columns: user email
 for user, email in emails.iteritems():
-   print '%-15s%s' % (user, email)
+   print('%-15s%s' % (user, email))
    
