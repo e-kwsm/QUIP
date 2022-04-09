@@ -6,6 +6,7 @@ Script to generate a crack slab, and apply initial strain ramp
 James Kermode <james.kermode@kcl.ac.uk>
 January 2013
 """
+from __future__ import print_function
 from ase.structure import bulk
 from ase.lattice.cubic import Diamond
 from ase.constraints import FixAtoms
@@ -217,7 +218,7 @@ minim.run(fmax=relax_fmax)
 
 # Find initial position of crack tip
 crack_pos = find_crack_tip_stress_field(crack_slab, calc=mm_pot)
-print 'Found crack tip at position %s' % crack_pos
+print('Found crack tip at position %s' % crack_pos)
 
 # Save all calculated materials properties inside the Atoms object
 crack_slab.info['nneightol'] = 1.3 # nearest neighbour tolerance
