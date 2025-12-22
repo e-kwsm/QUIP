@@ -34,6 +34,7 @@ use libatoms_module
   integer, pointer :: cluster_mark(:), t_i(:)
   character(len=1), pointer :: t_s(:,:)
   real(dp), pointer :: t_d(:)
+  integer :: i
 
   call system_initialise()
 

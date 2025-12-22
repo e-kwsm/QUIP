@@ -41,7 +41,7 @@ module QC_QUIP_Wrapper_module
           verbosity_push, verbosity_pop, PRINT_SILENT, operator(//), inoutput, PRINT_ALWAYS
   use extendable_str_module, only : extendable_str, string, read
   use table_module, only : table, wipe, int_part
-  use atoms_types_module, only : atoms, assign_pointer, add_property
+  use atoms_types_module, only : atoms, assign_pointer, add_property, add_property_from_pointer
   use atoms_module, only : initialise, calc_connect, set_lattice, assignment(=)
   use potential_module, only : potential, initialise, finalise, calc
   use mpi_context_module, only : mpi_context

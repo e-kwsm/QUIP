@@ -396,19 +396,19 @@ module Potential_module
      module procedure dynamicalsystem_run
   end interface run
 
-#include "Potential_Sum_header.f95"
-#include "Potential_ForceMixing_header.f95"
-#include "Potential_EVB_header.f95"
+#include "Potential_Sum_header.F90"
+#include "Potential_ForceMixing_header.F90"
+#include "Potential_EVB_header.F90"
 
 #ifdef HAVE_LOCAL_E_MIX
-#include "Potential_Local_E_Mix_header.f95"
+#include "Potential_Local_E_Mix_header.F90"
 #endif
 #ifdef HAVE_ONIOM
-#include "Potential_ONIOM_header.f95"
+#include "Potential_ONIOM_header.F90"
 #endif
-#include "Potential_Cluster_header.f95"
+#include "Potential_Cluster_header.F90"
 
-  ! Public interfaces from Potential_Hybrid_utils.f95
+  ! Public interfaces from Potential_Hybrid_utils.F90
 
   public :: bulk_modulus
   interface bulk_modulus
@@ -2278,19 +2278,19 @@ end subroutine pack_pos_dg
   end subroutine potential_calc_TB_matrices
 #endif
 
-#include "Potential_Sum_routines.f95"
-#include "Potential_ForceMixing_routines.f95"
-#include "Potential_EVB_routines.f95"
+#include "Potential_Sum_routines.F90"
+#include "Potential_ForceMixing_routines.F90"
+#include "Potential_EVB_routines.F90"
 
 #ifdef HAVE_LOCAL_E_MIX
-#include "Potential_Local_E_Mix_routines.f95"
+#include "Potential_Local_E_Mix_routines.F90"
 #endif
 #ifdef HAVE_ONIOM
-#include "Potential_ONIOM_routines.f95"
+#include "Potential_ONIOM_routines.F90"
 #endif
 
-#include "Potential_Cluster_routines.f95"
-#include "Potential_Hybrid_utils.f95"
+#include "Potential_Cluster_routines.F90"
+#include "Potential_Hybrid_utils.F90"
 
 
   !% Run 'n_steps' of dynamics using forces from Potential 'pot'.

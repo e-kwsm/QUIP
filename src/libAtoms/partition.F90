@@ -51,6 +51,7 @@ module partition_module
   interface
      function METIS_SetDefaultOptions(options) bind(c)
        use iso_c_binding
+       integer(C_INT) :: METIS_SetDefaultOptions
        integer(C_INT),  dimension(0:40) :: options
      end function METIS_SetDefaultOptions
 

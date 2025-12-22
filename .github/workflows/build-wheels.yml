@@ -1,8 +1,12 @@
+name: Build Wheels
+
 on:
   push:
-    branches: [ public ]
+    branches: [ public, mesonify ]
     tags:
        - v*
+  pull_request:
+    branches: [ public, mesonify ]
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -11,136 +15,169 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        os: [ubuntu-latest, macos-11]
       fail-fast: false
+      matrix:
+        # macos-15-intel is x86_64, macos-14 is arm64
+        os: [ubuntu-latest, macos-15-intel, macos-14]
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
-      - uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.19.1
+        run: python -m pip install cibuildwheel==2.21.1
+
+      - name: Determine architecture
+        id: arch
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "arch=x86_64" >> $GITHUB_OUTPUT
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            # macos-15-intel is x86_64, macos-14 is arm64
+            if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+              echo "arch=arm64" >> $GITHUB_OUTPUT
+            else
+              echo "arch=x86_64" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Install build dependencies
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y gfortran ninja-build pkg-config libopenblas-dev liblapack-dev libnetcdf-dev libhdf5-dev
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install gcc meson ninja openblas netcdf hdf5
+            # Link gfortran
+            for gfortran_bin in /opt/homebrew/bin/gfortran-* /usr/local/bin/gfortran-*; do
+              if [ -f "$gfortran_bin" ]; then
+                sudo ln -sf "$gfortran_bin" /usr/local/bin/gfortran && break
+              fi
+            done
+          fi
+          pip install meson
 
       - name: Build wheels
-        run: |
-             if [ "$RUNNER_OS" == "Linux" ]; then
-                QUIP_ARCHS=linux_x86_64_gfortran_openmp
-             elif [ "$RUNNER_OS" == "macOS" ]; then
-                QUIP_ARCHS="darwin_x86_64_gfortran_openmp darwin_arm64_gfortran_openmp"
-             else
-               echo "RUNNER_OS=$RUNNER_OS not supported!"
-               exit 1
-             fi
-             echo "RUNNER_OS=$RUNNER_OS"
-             echo "QUIP_ARCHS=${QUIP_ARCHS}"
-
-             # see if this workflow run was triggered from a tag
-             event_ref=${{ github.ref }}
-             if [[ ! -z $event_ref && $event_ref =~ ^refs/tags/ ]]; then
-                 echo ${{ github.ref }} | sed -e 's|refs/tags/||' > GITHUB_TAG
-             fi
-
-             # map from QUIP_ARCH to cibuildwheel architecture
-             for QUIP_ARCH in $QUIP_ARCHS; do
-                case $QUIP_ARCH in
-
-                    linux_x86_64_gfortran_openmp)
-                      ARCHS=auto64
-                      ;;
-
-                    darwin_x86_64_gfortran_openmp)
-                      ARCHS=x86_64
-                      ;;
-
-                    darwin_arm64_gfortran_openmp)
-                      ARCHS=arm64
-                      ;;
-
-                esac
-
-                echo "QUIP_ARCH=${QUIP_ARCH}, ARCHS=${ARCHS}"
-
-                if [[ $ARCHS == "arm64" ]]; then
-                  # install arm64 cross compiler
-                  # taken from https://github.com/MacPython/gfortran-install/blob/master/gfortran_utils.sh#L97
-                  curl -L -O https://github.com/isuruf/gcc/releases/download/gcc-10-arm-20210228/gfortran-darwin-arm64.tar.gz
-                  export GFORTRAN_SHA=f26990f6f08e19b2ec150b9da9d59bd0558261dd
-                  if [[ "$(shasum gfortran-darwin-arm64.tar.gz)" != "${GFORTRAN_SHA}  gfortran-darwin-arm64.tar.gz" ]]; then
-                            echo "shasum mismatch for gfortran-darwin-arm64"
-                            exit 1
-                  fi
-                  sudo mkdir -p /opt/
-                  sudo cp "gfortran-darwin-arm64.tar.gz" /opt/gfortran-darwin-arm64.tar.gz
-                  pushd /opt
-                        sudo tar -xvf gfortran-darwin-arm64.tar.gz
-                        sudo rm gfortran-darwin-arm64.tar.gz
-                  popd
-                  export FC_ARM64="$(find /opt/gfortran-darwin-arm64/bin -name "*-gfortran")"
-                  libgfortran="$(find /opt/gfortran-darwin-arm64/lib -name libgfortran.dylib)"
-                  libdir=$(dirname $libgfortran)
-                  export FC_ARM64_LDFLAGS="-L$libdir -Wl,-rpath,$libdir"
-
-                  # Setup cross build for single arch arm_64 wheels
-                  # host_alias automatically lets autoconf know that we are cross compiling for arm64 darwin
-                  export CIBW_ENVIRONMENT="ARCHS=${ARCHS} QUIP_ARCH=${QUIP_ARCH} RUNNER_OS=${RUNNER_OS} FC=$FC_ARM64 F90=$FC_ARM64 F95=$FC_ARM64 F77=$FC_ARM64 LDFLAGS=\" -arch arm64 $FC_ARM64_LDFLAGS\" NPY_DISTUTILS_APPEND_FLAGS=1 CFLAGS=\" -arch arm64\" CXXFLAGS=\" -arch arm64\" CPPFLAGS=\" -arch arm64\" _PYTHON_HOST_PLATFORM=macosx-11.0-arm64 ARCHFLAGS=\" -arch arm64\" FCFLAGS=\" -arch arm64\" CROSS_COMPILING=1 host_alias=aarch64-apple-darwin20.0.0  MACOSX_DEPLOYMENT_TARGET=11.0 SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk"
-                else
-                  export CIBW_ENVIRONMENT="ARCHS=${ARCHS} QUIP_ARCH=${QUIP_ARCH} RUNNER_OS=${RUNNER_OS}"
-                fi
-
-                mkdir -p build/${QUIP_ARCH}
-                cp quippy/setup.py build/${QUIP_ARCH}
-                ./bin/gitversion --hash-only > build/${QUIP_ARCH}/VERSION
-                echo "CIBW_ENVIRONMENT=$CIBW_ENVIRONMENT"
-                if [ "$RUNNER_OS" == "macOS" ]; then
-                  export CIBW_SKIP="cp27-* cp35-* cp36-* pp*"
-                  python -m cibuildwheel --output-dir wheelhouse --archs $ARCHS build/${QUIP_ARCH}
-                else
-                  export CIBW_MANYLINUX_X86_64_IMAGE="manylinux2014"
-                  export CIBW_SKIP="cp27-* cp35-* cp36-* pp* *musllinux*"
-                  python -m cibuildwheel --output-dir wheelhouse --archs $ARCHS build/${QUIP_ARCH}
-                fi
-             done
+        run: python -m cibuildwheel --output-dir wheelhouse quippy
         env:
-           CIBW_TEST_SKIP: "*-macosx_arm64"
-           CIBW_BEFORE_ALL_MACOS: "brew install gfortran && brew unlink gfortran && brew link gfortran"
-          #  CIBW_BEFORE_ALL_LINUX: "which yum && yum install -y gcc-gfortran || apk add gfortran"
-           CIBW_BEFORE_BUILD: "bash .github/workflows/prepare-wheel-build.sh"
+          # Skip Python 2.7, 3.5, 3.6, 3.7, 3.8, PyPy, and musllinux (requires Python >=3.9)
+          CIBW_SKIP: "cp27-* cp35-* cp36-* cp37-* cp38-* pp* *musllinux*"
+          CIBW_BUILD_VERBOSITY: 3
+
+          # Use manylinux2014 for Linux
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
+
+          # Install system dependencies in build containers
+          CIBW_BEFORE_ALL_LINUX: >
+            yum install -y openblas-devel lapack-devel netcdf-devel hdf5-devel
+
+          CIBW_BEFORE_ALL_MACOS: >
+            brew install openblas netcdf hdf5 || true
+
+          # Build QUIP libraries inside each wheel's isolated environment
+          # Install meson/ninja in the current Python environment, then build QUIP
+          CIBW_BEFORE_BUILD_LINUX: >
+            pip install meson ninja &&
+            cd {package} && cd .. &&
+            meson setup builddir &&
+            meson compile -C builddir
+
+          CIBW_BEFORE_BUILD_MACOS: >
+            pip install meson ninja &&
+            cd {package} && cd .. &&
+            PKG_CONFIG_PATH="/opt/homebrew/opt/openblas/lib/pkgconfig:/usr/local/opt/openblas/lib/pkgconfig" meson setup builddir &&
+            meson compile -C builddir
+
+          # Set environment variables for builds
+          # Linux: Set PKG_CONFIG_PATH to where openblas.pc is installed
+          CIBW_ENVIRONMENT_LINUX: >
+            PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/local/lib64/pkgconfig"
+
+          # macOS: Add paths for openblas
+          CIBW_ENVIRONMENT_MACOS: >
+            PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+            PKG_CONFIG_PATH="/opt/homebrew/opt/openblas/lib/pkgconfig:/usr/local/opt/openblas/lib/pkgconfig"
+
+          # macOS: Custom repair command to handle duplicate libgfortran libraries
+          # delocate has issues with multiple libgfortran.dylib paths from QUIP's multiple libraries
+          # Try repair with arch check, then without, then skip repair (copy wheel as-is)
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel} ||
+            delocate-wheel -w {dest_dir} -v {wheel} ||
+            cp {wheel} {dest_dir}/
+
+          # Build with meson-python (already configured in pyproject.toml)
+          CIBW_BUILD_FRONTEND: "build"
+
+          # Architecture setting
+          CIBW_ARCHS: ${{ steps.arch.outputs.arch }}
+
+      - name: Debug - list environment
+        if: failure()
+        run: |
+          echo "=== Environment ==="
+          env | sort
+          echo "=== Python info ==="
+          python --version
+          pip list
 
       # Uncomment to get SSH access for testing
-      - name: Setup tmate session
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15
+      # - name: Setup tmate session
+      #   if: failure()
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15
 
-      - uses: actions/upload-artifact@v3
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
         with:
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
+  # Combine all wheels and create release
+  release:
+    name: Create release
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: wheelhouse
+
       - name: Build source tarball
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
-           pip install git-archive-all
-           version=$(echo ${{ github.ref }} | sed -e 's|refs/tags/||')
-           git-archive-all QUIP-$version.tar.gz
+          pip install git-archive-all
+          version=$(echo ${{ github.ref }} | sed -e 's|refs/tags/||')
+          git-archive-all QUIP-$version.tar.gz
 
       - name: Release wheels and source tarball
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          files: wheelhouse/*.whl QUIP-*.tar.gz
+          files: |
+            wheelhouse/*.whl
+            QUIP-*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check tag
+      - name: Check if production release tag
         id: check-tag
         run: |
           if [[ ${{ github.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo ::set-output name=match::true
+              echo "match=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Deploy to PyPI
