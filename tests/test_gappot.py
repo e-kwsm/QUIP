@@ -25,18 +25,19 @@ import quippytest
 import ase
 import ase.io
 
-@unittest.skipIf(os.environ['HAVE_GAP'] != '1', 'GAP support not enabled')
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+
 class TestCalculator_GAP_Potential(quippytest.QuippyTestCase):
     def setUp(self):
-        self.pot_calculator = quippy.potential.Potential("IP GAP", param_filename="GAP.xml")
-        self.at_orig = ase.io.read('gap_sample.xyz')
+        self.pot_calculator = quippy.potential.Potential("IP GAP", param_filename=os.path.join(TEST_DIR, "GAP.xml"))
+        self.at_orig = ase.io.read(os.path.join(TEST_DIR, 'gap_sample.xyz'))
 
         self.at = ase.Atoms(numbers=self.at_orig.arrays['numbers'], positions=self.at_orig.get_positions(), pbc=True,
                             cell=self.at_orig.get_cell())
 
         self.f = np.zeros((3, len(self.at)), order='F')
 
-        self.energy_ref = self.at_orig.info['energy']
+        self.energy_ref = self.at_orig.get_potential_energy()
         self.forces_ref = self.at_orig.arrays['force']
 
         self.at.calc = self.pot_calculator

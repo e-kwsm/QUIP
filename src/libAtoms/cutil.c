@@ -41,7 +41,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifndef DARWIN
+#ifndef __APPLE__
 #include <sys/sysinfo.h>
 #else
 #include <sys/sysctl.h>
@@ -202,13 +202,28 @@ void fwrite_array_d_(int *size, double *v, char *filename) {
    fclose(fp);
 }
 
+void fwrite_array_d_bin_(int *size, double *v, char *filename) {
+   FILE *fp;
+   int i;
+   fp = fopen(filename, "w");
+   fwrite(v, *size, sizeof(double), fp);
+   fclose(fp);
+}
+
 void fread_array_d_(int *size, double *v, char *filename) {
    FILE *fp;
    int i;
 
    fp = fopen(filename, "r");
    for (i=0; i < *size; i++) {
-      fscanf(fp, "%lf", v+i);
+      int n_read = fscanf(fp, "%lf", v+i);
+      if (i == 0 && n_read <= 0) {
+          // try binary
+          fclose(fp);
+          fp = fopen(filename, "r");
+          fread(v, *size, sizeof(double), fp);
+          break;
+      }
    }
    fclose(fp);
 }
@@ -249,7 +264,7 @@ void fwrite_line_to_file_(char *filename, char *line, char *mode) {
 
 void fappend_file_to_file_(char *filename_to, char *filename_from) {
    FILE *fp_to, *fp_from;
-   char ch;
+   int ch;
 
    fp_to = fopen(filename_to, "a");
    fp_from = fopen(filename_from, "r");
@@ -275,7 +290,7 @@ int pointer_to_(void *p) {
 
 void c_mem_info_(double *total_mem, double *free_mem)
 {
-#ifndef DARWIN
+#ifndef __APPLE__
    struct sysinfo s_info;
 #else
    int mib[6];
@@ -286,7 +301,7 @@ void c_mem_info_(double *total_mem, double *free_mem)
 #endif
    int error;
 
-#ifndef DARWIN
+#ifndef __APPLE__
    error = sysinfo(&s_info);
    *total_mem = s_info.totalram*s_info.mem_unit;
    *free_mem = s_info.freeram*s_info.mem_unit;

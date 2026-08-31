@@ -13,7 +13,7 @@ Various hybrid combinations are also supported in the style of QM/MM,
 with a particular focus on materials systems such as metals and
 semiconductors.
 
-For more details, see the [online documentation](http://libatoms.github.io/QUIP).
+For more details, see the [online documentation](http://libatoms.github.io/QUIP). There is separate [documentation for SOAP and GAP](https://libatoms.github.io/GAP).
 
 Long term support of the package is ensured by:
  - Noam Bernstein ([@bernstei](https://github.com/bernstei), Naval Research Laboratory)
@@ -33,7 +33,7 @@ Copyright 2006-2021.
 Most of the publicly available version is released under the GNU
 General Public license, version 2, with some portions in the public
 domain. The GAP code, included as a submodule, is distributed under
-a non-commerical [academic source license](https://github.com/libAtoms/GAP/blob/main/LICENSE.md)
+a non-commercial [academic source license](https://github.com/libAtoms/GAP/blob/main/LICENSE.md)
 
 ## Citing QUIP, quippy and GAP
 
@@ -146,10 +146,11 @@ much more widely used, but QUIP has a number of unique features:
 - Support for Gaussian Approximation Potentials (GAP) - [online docs](https://libatoms.github.io/GAP)
 - Does not assume minimum image convention, so interatomic potentials can
   have cutoffs that are larger than the periodic unit cell size
-  
+
 ## Binary Installation of QUIP and quippy
 
-Binary wheels for QUIP and the associated quippy Python bindings 
+Binary 
+for QUIP and the associated quippy Python bindings
 that provide interopability with the Atomic Simulation Environment (ASE) are
 available from the [Python package index](https://pypi.org/project/quippy-ase/)
 (PyPI) under the package name `quippy-ase`.
@@ -159,17 +160,15 @@ This means you can install the latest release with:
 pip install quippy-ase
 ```
 
-Installing via `pip` also makes the `quip` and `gap_fit` command line 
-programs available (providing the [directory that pip installs scripts 
+Installing via `pip` also makes the `quip` and `gap_fit` command line
+programs available (providing the [directory that pip installs scripts
 to](https://stackoverflow.com/questions/62162970/programmatically-determine-pip-user-install-location-scripts-directory/62167797#62167797) is on your `PATH`).
 
 Currently, wheels are available for `x86_64` architectures
-with Python 3.6+ on Mac OS X and glibc-based Linux distributions
-(e.g. Ubuntu, CentOS). The wheels are updated periodically
-using the [quippy-wheels](https://github.com/libAtoms/quippy-wheels) 
-repository using GitHub Actions CI. Please open 
-[issues](https://github.com/libAtoms/quippy-wheels/issues)
-there if you have problems installing with `pip`.
+with Python 3.9+ on macOS and glibc-based Linux distributions
+(e.g. Ubuntu, CentOS) and for macOS arm64 (Apple Silicon). The wheels are updated periodically
+using GitHub Actions CI. Please open [issues](https://github.com/libAtoms/QUIP/issues)
+here if you have problems installing with `pip`.
 
 ## Precompiled Containers
 
@@ -185,79 +184,98 @@ to get up and running quickly.
     - A working Fortran compiler. QUIP is tested with `gfortran` 4.4 and
       later, and `ifort` 11.1.
 
-    - Linear algebra libraries BLAS and LAPACK. QUIP is tested with
-      reference versions `libblas-dev` and `liblapack-dev` on Ubuntu
-      12.04, and `mkl` 11.1 with `ifort`.
+    - Linear algebra libraries BLAS and LAPACK. QUIP works with
+      reference versions, OpenBLAS (recommended), or Intel MKL.
+
+    - [Meson build system](https://mesonbuild.com/) version 1.1 or later.
+      Install with `pip install meson` or via your package manager.
+
+    - [Ninja build tool](https://ninja-build.org/).
+      Install with `pip install ninja` or via your package manager.
+
+    - MPI (optional): To use MPI parallelization of `gap_fit`, you need a
+      ScaLAPACK library, e.g. `libscalapack-openmpi` on Ubuntu, or
+      as part of MKL.
 
 2.  Clone the QUIP repository from GitHub. The `--recursive` option
     brings in submodules automatically (If you don't do this, then
     you will need to run `git submodule update --init --recursive`
-    from the top-level QUIP directory after cloning) ::
+    from the top-level QUIP directory after cloning):
     ```bash
     git clone --recursive https://github.com/libAtoms/QUIP.git
     ```
 
     One submodule is the GAP code, which can be found in `src/GAP`.
-    Note that GAP is distributed under a diferent
+    Note that GAP is distributed under a different
     [license](https://github.com/libAtoms/GAP/blob/main/LICENSE.md).
-    
+
     GAP is a machine learning method that uses Gaussian process
     regression, and needs large data files to run. You can find
     potentials that have been published as well as training data in
-    our [data repository](http://www.libatoms.org/Home/DataRepository), see also the [online docs](https://libatoms.github.io/GAP).
+    our [data repository](https://libatoms.github.io/GAP/data.html), see also the [online docs](https://libatoms.github.io/GAP).
 
-3.  Decide your architecture by looking in the `arch/` directory, and
-    define an environmental variable `QUIP_ARCH`, e.g.::
+3.  **Important:** Ensure the submodules are on the correct branches with meson support:
     ```bash
-    export QUIP_ARCH=linux_x86_64_gfortran
+    cd src/fox && git checkout master && git pull
+    cd ../GAP && git checkout main && git pull
+    cd ../..
     ```
-    for standard gfortran on Linux. Here is where you can adjust which
-    compiler is being used, if you do not like the defaults. You may need to
-    create your own `arch/Makefile.${QUIP_ARCH}` file based on an existing file for
-    more exotic systems.
 
-4.  Customise QUIP, set the maths libraries and provide linking options::
+4.  Configure the build with meson:
     ```bash
-    make config
+    meson setup builddir
     ```
-    Makefile.config will create a build directory, `build/${QUIP_ARCH}`,
-    and all the building happen there. First it will ask you some
-    questions about where you keep libraries and other stuff, if you
-    don't use something it is asking for, just leave it blank. The
-    answers will be stored in `Makefile.inc` in the `build/${QUIP_ARCH}`
-    directory, and you can edit them later (e.g. to change compiler, optimisation
-    or debug options).
 
-    If you later make significant changes to the configuration such as
-    enabling or disabling tight-binding support you should force a
-    full rebuild by doing a `make deepclean; make`.
-    
-5.  Compile all programs, modules and libraries::
+    This creates a `builddir` directory where all build artifacts will be placed.
+    Meson will automatically detect your compiler, BLAS/LAPACK libraries, and configure
+    the build appropriately.
+
+    **Build options**: You can customize the build using `-D` flags:
     ```bash
-    make
+    meson setup builddir -Dgap=true -Dmpi=false
     ```
-    From the top-level `QUIP` directory. All programs are built in
-    `build/${QUIP_ARCH}/`. You can also find compiled object files
-    and libraries (`libquip.a`) in that directory. Programs can be
-    called directly from that directory.
 
-    Other useful make targets include:
+    Available options:
+    - `gap` (default: `true`): Enable GAP (Gaussian Approximation Potentials) support
+    - `mpi` (default: `false`): Enable MPI parallelization
 
-    - `make install` : copies all compiled programs it can find to
-      `QUIP_INSTALLDIR`, if it's defined and is a directory (full path
-      required), and copies bundled structures to `QUIP_STRUCTS_DIR`
-      if it is defined.
+    To reconfigure an existing build directory:
+    ```bash
+    meson configure builddir -Dmpi=true
+    ```
 
-    - `make libquip`:   Compile QUIP as a library and link to it.
-      This will make all the various libraries and combine them into one:
-      `build/${QUIP_ARCH}/libquip.a`, which is what you need to link with
-      (as well as LAPACK).
+5.  Compile all programs, modules and libraries:
+    ```bash
+    meson compile -C builddir
+    ```
+
+    All programs are built in `builddir/src/Programs/`. You can also find compiled
+    shared libraries in `builddir/src/*/lib*.so`. Programs can be called directly from
+    the build directory:
+    ```bash
+    ./builddir/src/Programs/quip --help
+    ./builddir/src/Programs/gap_fit --help
+    ```
+
+    Other useful meson commands:
+
+    - `meson install -C builddir` : Install compiled programs and libraries to the
+      system (or use `--destdir` to specify an installation prefix)
+
+    - `meson test -C builddir` : Run the test suite (requires quippy to be built)
+
+    - Clean and rebuild:
+      ```bash
+      rm -rf builddir
+      meson setup builddir
+      meson compile -C builddir
+      ```
 
 6.  A good starting point is to use the `quip` program, which can
     calculate the properties of an atomic configuration using a
-    variety of models. For example::
+    variety of models. For example:
     ```bash
-    quip atoms_filename=test.xyz init_args='IP LJ' \
+    ./builddir/src/Programs/quip atoms_filename=test.xyz init_args='IP LJ' \
         param_filename=share/Parameters/ip.parms.LJ.xml E
     ```
     assuming that you have a file called `test.xyz` with the following
@@ -291,60 +309,127 @@ to get up and running quickly.
     the types of interatomic potentials (IP) that are available.
 
 7.  To compile the Python wrappers (`quippy`), the minimum requirements
-    are as follows. `f90wrap` will be installed automatically by the build
-    process, but you might need to check that the directory where `pip`
-    installs executuable scripts to is on your path (e.g. by setting
-    `PATH=~/.local/bin:$PATH`).
-    - Python 3
+    are as follows:
+    - Python 3.9+
+    - [Meson build system](https://mesonbuild.com/) version 1.1+
     - [NumPy](http://www.numpy.org) (`numpy>=1.5.0`)
     - [Atomic Simulation Environment ](https://wiki.fysik.dtu.dk/ase/) (`ase>=3.17.0`)
-    - [f90wrap](https://github.com/jameskermode/f90wrap)
+    - [f90wrap](https://github.com/jameskermode/f90wrap) version 0.3.0 or later:
+      ```bash
+      pip install 'f90wrap>=0.3.0'
+      ```
     - (optional) [SciPy](http://www.scipy.org)
     - (optional) [matscipy](https://github.com/libAtoms/matscipy).
 
-    Note: If you are using a Python virtual environment (virtualenv) and would like
+    **Recommended**: Use [uv](https://docs.astral.sh/uv/) for fast, isolated environment management:
+    ```bash
+    # Install uv if not already installed
+    pip install uv
+
+    # Create isolated environment
+    uv venv .venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+    # Install f90wrap
+    uv pip install 'f90wrap>=0.3.0'
+
+    # Install other dependencies
+    uv pip install numpy ase meson ninja
+    ```
+
+    Note: If you are using a Python virtual environment (virtualenv or venv) and would like
     to install `quippy` into it, ensure the environment is activated
     (`source <env_dir>/bin/activate`, where `<env_dir>` is the root of
-    your virtual environment) _before_ building `quippy` (otherwise library
-    versions may cause unexpected conflicts).
-    
-9.  To compile the Python wrappers (`quippy`), run::
-    ```bash
-    make quippy
-    ```
-    Quippy can be used by adding the `lib` directory in
-    `quippy/build/${QUIP_ARCH}` to your `$PYTHONPATH`, however it can be
-    more convenient to install into a specific Python distribution::
-    ```bash
-    make install-quippy
-    ```
-    will either install into the current virtualenv or attempt to install
-    systemwide (usually fails without `sudo`). To install only for the
-    current user (into `~/.local`), execute the command
-    `QUIPPY_INSTALL_OPTS=--user make install-quippy`,
-    or use `QUIPPY_INSTALL_OPTS=--prefix=<directory>` to install into a
-    specific directory. `QUIPPY_INSTALL_OPTS` can also be set in the file
-    `build/${QUIP_ARCH}/Makefile.inc`.
+    your virtual environment) _before_ building `quippy`.
 
-10.  More details on the quippy installation process and troubleshooting for
+8.  To compile the Python wrappers (`quippy`):
+
+    **Important:** You must first build the main QUIP libraries (steps 4-5 above) before building quippy.
+
+    **Method 1: Using pip (recommended)**
+
+    The simplest way to build and install quippy is with pip:
+    ```bash
+    cd quippy
+    pip install .
+    ```
+
+    **Note:** Do NOT use `pip install -e .` (editable install) as this is problematic with meson-based builds.
+
+    **Method 2: Using meson directly**
+
+    Alternatively, you can build with meson and then install:
+    ```bash
+    cd quippy
+    meson setup builddir
+    meson compile -C builddir
+    ```
+
+    This will:
+    - Preprocess the Fortran source files
+    - Generate Python wrappers using f90wrap
+    - Compile the Python extension module
+    - Prepare the quippy package for installation
+
+    Then install with pip:
+    ```bash
+    pip install .
+    ```
+
+9.  More details on the quippy installation process and troubleshooting for
     common build problems are available in the
     [online documentation](http://libatoms.github.io/QUIP/).
 
-11.  To run the unit and regression tests, which depend on `quippy`::
+10.  To run the unit and regression tests (requires quippy to be installed):
     ```bash
-    make test
+    cd tests
+    python3 run_all.py -v
     ```
-12.  To get back to a state near to a fresh clone, use
+    Or if using meson:
     ```bash
-    make distclean
+    meson test -C builddir
     ```
-13. Some functionality is only available if you check out other
+
+11. Some functionality is only available if you check out other
     modules within the `QUIP/src/` directories, e.g. the `ThirdParty`
     (DFTB parameters, TTM3f water model).
 
-14. In order to run QUIP potentials via LAMMPS, `make libquip` to get QUIP
-    into library form, and then follow the instructions in the
+12. In order to run QUIP potentials via LAMMPS, build the QUIP libraries with meson,
+    and then follow the instructions in the
     [LAMMPS documentation](http://lammps.sandia.gov/doc/pair_quip.html). You need at least 11 Aug 2017 version or later.
+    The required libraries will be in `builddir/src/*/lib*.so`.
+
+## Migrating from Make to Meson
+
+If you have previously built QUIP using the old Makefile-based system, note the following differences:
+
+**Key Changes:**
+- **No `QUIP_ARCH` environment variable**: Meson automatically detects your system configuration
+- **Build directory**: All build artifacts go to `builddir/` (or whatever name you choose) instead of `build/${QUIP_ARCH}/`
+- **Configuration**: Use `meson configure` with `-D` options instead of editing `Makefile.inc`
+- **Submodules**: Ensure submodules are updated to versions with meson support (fox: master, GAP: main)
+- **Programs location**: Executables are in `builddir/src/Programs/` instead of `build/${QUIP_ARCH}/`
+- **Libraries**: Shared libraries (`.so`) are built by default instead of static libraries (`.a`)
+
+**Workflow Comparison:**
+
+| Task | Old (Make) | New (Meson) |
+|------|-----------|-------------|
+| Setup | `export QUIP_ARCH=...` + `make config` | `meson setup builddir` |
+| Configure | Edit `build/${QUIP_ARCH}/Makefile.inc` | `meson configure builddir -Doption=value` |
+| Build | `make` | `meson compile -C builddir` |
+| Install | `make install` | `meson install -C builddir` |
+| Clean | `make clean` | `rm -rf builddir` |
+| Test | `make test` | `meson test -C builddir` |
+
+**To clean your old Make builds:**
+```bash
+# If you still have the old Makefile setup
+make distclean
+
+# Remove old build directories
+rm -rf build/
+```
 
 # Developer notes:
 
@@ -353,11 +438,11 @@ to get up and running quickly.
   ```bash
   cd src/GAP
   ```
-  ```bash 
-  git checkout <commit> 
+  ```bash
+  git checkout <commit>
   ```
-  OR 
-  ```bash 
+  OR
+  ```bash
   git checkout main
 
   ```
@@ -368,9 +453,32 @@ to get up and running quickly.
   git commit -m "updating the version of GAP"
   ```
 
-### Mac OS
+## Mac OS
 
 We do not recommend Apple-shipped compilers and python, and we do not test
 compatibility with them. Either use MacPorts or Homebrew to obtain GNU compilers,
 and also use the python from there or Anaconda. As of this edit, gcc-8.1 produces as
 internal compiler error, but gcc-4.6 through to gcc-7 is fine.
+
+## Triggering the wheel build
+
+Wheels are built on push and pull requests to `public` using [cibuildwheel](https://cibuildwheel.readthedocs.io/en/stable/)
+with [this workflow](.github/workflows/build-wheels.yml).
+
+To make a release candidate create a tag with a suffix such as `-rc1` for the first attempt,
+push to trigger the build:
+
+```bash
+git commit -m 'release v0.x.z-rc1'
+git tag v0.x.y-rc1
+git push --tags
+```
+
+If all goes well, the `.whl` files will show up as assets within a new GitHub
+release. The installation process can now be tested locally.
+
+## Release wheels to PyPI
+
+Once everything works correctly, make a full release (i.e. create a tag named
+just `v0.x.y` without the `-rc1` suffix). This will trigger the upload of wheels
+and source distribution to PyPI.

@@ -1,41 +1,246 @@
-on: [push, pull_request, workflow_dispatch]
+name: Build Wheels
+
+on:
+  push:
+    branches: [ public, mesonify ]
+    tags:
+       - v*
+  pull_request:
+    branches: [ public, mesonify ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheels (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        os: [ubuntu-20.04, macos-10.15]
       fail-fast: false
+      matrix:
+        include:
+          # Linux with manylinux2014 for Python 3.9-3.10 (broader compatibility)
+          - name: linux-manylinux2014
+            os: ubuntu-latest
+            manylinux_image: manylinux2014
+            cibw_build: "cp39-manylinux* cp310-manylinux*"
+            before_all: "yum install -y openblas-devel lapack-devel netcdf-devel hdf5-devel"
+          # Linux with manylinux_2_28 for Python 3.11+ (scipy compatibility)
+          - name: linux-manylinux_2_28
+            os: ubuntu-latest
+            manylinux_image: manylinux_2_28
+            cibw_build: "cp311-manylinux* cp312-manylinux* cp313-manylinux*"
+            before_all: "dnf install -y epel-release && dnf install -y openblas-devel lapack-devel"
+          # macOS ARM64
+          - name: macos-arm64
+            os: macos-14
+          # macOS x86_64
+          - name: macos-x86_64
+            os: macos-15-intel
 
     steps:
-      - uses: actions/checkout@v2
-      
-      - name: Build libraries
-        id: build-libs
-        run : |
-          QUIP_ARCH=linux_x86_64_gfortran_openmp
-          echo ::set-output name=quip_arch::${QUIP_ARCH}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.21.1
+
+      - name: Set version from git tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "Setting version to $VERSION from tag"
+          echo "$VERSION" > quippy/VERSION
+          # Update meson.build version (meson-python reads from project() call)
+          # Only update the project version line, not meson_version
+          sed -i.bak "s/^  version: '[^']*'/  version: '$VERSION'/" quippy/meson.build
+          rm -f quippy/meson.build.bak
+          echo "Updated quippy/meson.build:"
+          head -5 quippy/meson.build
+
+      - name: Determine architecture and deployment target
+        id: arch
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "arch=x86_64" >> $GITHUB_OUTPUT
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            # macos-15-intel is x86_64, macos-14 is arm64
+            if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+              echo "arch=arm64" >> $GITHUB_OUTPUT
+              echo "macos_target=14.0" >> $GITHUB_OUTPUT
+            else
+              echo "arch=x86_64" >> $GITHUB_OUTPUT
+              echo "macos_target=15.0" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Install build dependencies
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y gfortran ninja-build pkg-config libopenblas-dev liblapack-dev libnetcdf-dev libhdf5-dev
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install gcc meson ninja openblas netcdf hdf5
+            # Link gfortran
+            for gfortran_bin in /opt/homebrew/bin/gfortran-* /usr/local/bin/gfortran-*; do
+              if [ -f "$gfortran_bin" ]; then
+                sudo ln -sf "$gfortran_bin" /usr/local/bin/gfortran && break
+              fi
+            done
+          fi
+          pip install meson
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v1.11.1.post1 build/${{ steps.build-libs.quip_arch }}
+        run: python -m cibuildwheel --output-dir wheelhouse quippy
         env:
-           CIBW_SKIP: cp27-* cp35-* pp*
-           CIBW_TEST_SKIP: "*-macosx_arm64"
-           CIBW_ARCHS_LINUX: "auto64"
-           CIBW_ARCHS_MACOS: "x86_64 arm64"           
-           CIBW_BEFORE_ALL_MACOS: "ln -s $(which gfortran-10) /usr/local/bin/gfortran"
-           CIBW_BEFORE_ALL_LINUX: "yum install -y gcc-gfortran"
-           CIBW_BEFORE_BUILD: "bash .github/workflows/prepare-build.sh"
-           CIBW_TEST_COMMAND: "cd {project}/tests; HAVE_GAP=1 python run_all.py -v"
-           
-      # Uncomment to get SSH access for testing
-      - name: Setup tmate session
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15
+          # For Linux matrix entries, build only specific Python versions
+          # For macOS, build all supported versions (3.9+)
+          CIBW_BUILD: ${{ matrix.cibw_build || 'cp39-* cp310-* cp311-* cp312-* cp313-*' }}
+          # Skip PyPy and musllinux
+          CIBW_SKIP: "pp* *musllinux*"
+          CIBW_BUILD_VERBOSITY: 1
 
-      - uses: actions/upload-artifact@v2
+          # Use matrix-specified manylinux image (manylinux2014 or manylinux_2_28)
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image || 'manylinux2014' }}
+
+          # Install system dependencies in build containers
+          # manylinux2014 uses yum, manylinux_2_28 uses dnf
+          CIBW_BEFORE_ALL_LINUX: ${{ matrix.before_all || 'yum install -y openblas-devel lapack-devel netcdf-devel hdf5-devel' }}
+
+          CIBW_BEFORE_ALL_MACOS: >
+            brew install openblas netcdf hdf5 || true
+
+          # Build QUIP libraries inside each wheel's isolated environment
+          # Install meson/ninja in the current Python environment, then build QUIP
+          CIBW_BEFORE_BUILD_LINUX: >
+            pip install meson ninja &&
+            cd {package} && cd .. &&
+            meson setup builddir &&
+            meson compile -C builddir
+
+          CIBW_BEFORE_BUILD_MACOS: >
+            pip install meson ninja &&
+            cd {package} && cd .. &&
+            PKG_CONFIG_PATH="/opt/homebrew/opt/openblas/lib/pkgconfig:/usr/local/opt/openblas/lib/pkgconfig" meson setup builddir &&
+            meson compile -C builddir
+
+          # Set environment variables for builds
+          # Linux: Set PKG_CONFIG_PATH and LD_LIBRARY_PATH for auditwheel to find QUIP libraries
+          CIBW_ENVIRONMENT_LINUX: >
+            PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/local/lib64/pkgconfig"
+            LD_LIBRARY_PATH="/project/builddir/src/libAtoms:/project/builddir/src/fox:/project/builddir/src/GAP:/project/builddir/src/Potentials:/project/builddir/src/Utils:/project/builddir/src/Programs:$LD_LIBRARY_PATH"
+
+          # macOS: Pass through GITHUB_WORKSPACE and set library paths
+          # Set MACOSX_DEPLOYMENT_TARGET to match the runner's Homebrew libraries
+          CIBW_ENVIRONMENT_PASS_MACOS: "GITHUB_WORKSPACE"
+          CIBW_ENVIRONMENT_MACOS: >
+            PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+            PKG_CONFIG_PATH="/opt/homebrew/opt/openblas/lib/pkgconfig:/usr/local/opt/openblas/lib/pkgconfig"
+            MACOSX_DEPLOYMENT_TARGET="${{ steps.arch.outputs.macos_target }}"
+            QUIP_LIB_PATH="${GITHUB_WORKSPACE}/builddir/src/libAtoms:${GITHUB_WORKSPACE}/builddir/src/fox:${GITHUB_WORKSPACE}/builddir/src/GAP:${GITHUB_WORKSPACE}/builddir/src/Potentials:${GITHUB_WORKSPACE}/builddir/src/Utils:${GITHUB_WORKSPACE}/builddir/src/Programs"
+
+          # macOS: Custom repair command to bundle QUIP libraries into wheel
+          # Find GCC lib path via brew, set DYLD_LIBRARY_PATH for delocate to find all libs
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            GCC_LIB="$(brew --prefix gcc)/lib/gcc/current" &&
+            DYLD_LIBRARY_PATH="${GCC_LIB}:${QUIP_LIB_PATH}"
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+
+          # Build with meson-python (already configured in pyproject.toml)
+          CIBW_BUILD_FRONTEND: "build"
+
+          # Architecture setting
+          CIBW_ARCHS: ${{ steps.arch.outputs.arch }}
+
+          # Test that the wheel works correctly
+          # Note: Don't run executables as they may hang on Linux waiting for input
+          CIBW_TEST_COMMAND: >
+            python -c "import quippy" &&
+            python -c "import os, quippy; assert os.path.exists(os.path.join(quippy.__path__[0], 'quip')), 'quip executable missing'" &&
+            python -c "import os, quippy; assert os.path.exists(os.path.join(quippy.__path__[0], 'gap_fit')), 'gap_fit executable missing'" &&
+            python -c "import os, quippy; assert os.path.exists(os.path.join(quippy.__path__[0], 'md')), 'md executable missing'"
+
+      - name: Verify wheel contents
+        run: |
+          echo "=== Checking wheel contents for executables ==="
+          for whl in wheelhouse/*.whl; do
+            echo ""
+            echo "=== Contents of $whl ==="
+            unzip -l "$whl" | grep -E "(quip|gap_fit|md)$" || echo "WARNING: No executables found in $whl"
+          done
+
+      - name: Debug - list environment
+        if: failure()
+        run: |
+          echo "=== Environment ==="
+          env | sort
+          echo "=== Python info ==="
+          python --version
+          pip list
+
+      # Uncomment to get SSH access for testing
+      # - name: Setup tmate session
+      #   if: failure()
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15
+
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
         with:
+          name: wheels-${{ matrix.name }}
           path: ./wheelhouse/*.whl
+
+  # Combine all wheels and create release
+  release:
+    name: Create release
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: wheelhouse
+
+      - name: Build source tarball
+        run: |
+          pip install git-archive-all
+          version=$(echo ${{ github.ref }} | sed -e 's|refs/tags/||')
+          git-archive-all QUIP-$version.tar.gz
+
+      - name: Release wheels and source tarball
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wheelhouse/*.whl
+            QUIP-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if production release tag
+        id: check-tag
+        run: |
+          if [[ ${{ github.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "match=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to PyPI
+        if: steps.check-tag.outputs.match == 'true'
+        run: |
+          pip install twine
+          twine upload wheelhouse/*.whl
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}

@@ -1,0 +1,51 @@
+# HQ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# HQ X
+# H0 X   libAtoms+QUIP: atomistic simulation library
+# HQ X
+# HQ X   Portions of this code were written by
+# HQ X     Tamas K. Stenczel, Vlad Carare and Lars Schaaf
+# HQ X
+# HQ X   Copyright 2021-2022
+# HQ X
+# HQ X   working as of 17.08.2022
+# HQ X
+# HQ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# ACRHER2 computer cluster, United Kingdom
+#
+# recommended modules to use with this:
+# - GNU compilers version 11, python and FFTW
+# - obtain these with the following on Archer2
+# - this is a build with NO MPI, but with OpenMP
+#
+# module switch PrgEnv-cray PrgEnv-gnu/8.1.0
+# module load PrgEnv-gnu/8.1.0
+# module load cpe/22.04
+# module load cray-fftw
+# module load craype-network-none
+# module remove cray-mpich
+#
+# Notes:
+# - comms:
+#     This is the serial build, so you need to unload the MPI comms modules
+#     and load 'craype-network-none' instead. Otherwise the MPI versions of
+#     the lapack/blas routines may call the MPI libraries regardless of GAP
+#     not doing so.
+#
+# - math linking options
+#     No need for defining anything, the `ftn` & `cc` compiler wrapper take
+#     care of that, using libsci.
+#
+
+include arch/Makefile.archer2
+
+# OpenMP
+DEFINES += -D_OPENMP
+F90FLAGS += -fopenmp
+F77FLAGS += -fopenmp
+CFLAGS += -fopenmp
+LINKOPTS += -fopenmp
+
+QUIPPY_F90FLAGS += -fopenmp
+QUIPPY_CFLAGS += -fopenmp
+QUIPPY_LDFLAGS += -fopenmp

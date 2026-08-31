@@ -1,5 +1,5 @@
 # Base Python (debian) image
-FROM python:3.7
+FROM python:3.12
 LABEL maintainer="Gabor Csanyi <gc121@cam.ac.uk>"
 
 # make /bin/sh symlink to bash instead of dash:
@@ -25,6 +25,8 @@ RUN apt-get -y update \
  && apt-get install -y \
         gfortran \
         cmake \
+        meson \
+        ninja-build \
         openmpi-bin \
         libopenmpi-dev \
         liblapack-dev \
@@ -81,8 +83,9 @@ RUN pip install --upgrade pip \
         jupyter \
         numpy \
         scipy \
-        scikit-learn\
-        scikit-build\
+        scikit-learn \
+        scikit-build \
+        meson-python \
         matplotlib \
         pyamg \
         imolecule \
@@ -91,18 +94,16 @@ RUN pip install --upgrade pip \
         nbsphinx \
         numpydoc \
         spglib \
-        rdkit-pypi \
+        rdkit \
         nglview \
-        RISE \
         pandas \
         phonopy \
         torch \
         torchani \
         gpaw \
- && jupyter nbextension enable --py --sys-prefix widgetsnbextension \
- && jupyter nbextension enable --py --sys-prefix nglview \
- && jupyter-nbextension install rise --py --sys-prefix \
- && jupyter-nbextension enable rise --py --sys-prefix
+        ipywidgets \
+        jupyterlab_widgets \
+        jupyterlab_rise
 
 # get latest version of ASE
 RUN pip install git+https://gitlab.com/ase/ase
@@ -161,40 +162,25 @@ RUN mv /root/.local/share/jupyter/kernels/julia* /usr/local/share/jupyter/kernel
 #
 #################################################################################
 
-# All the QUIPs go here; added to path in the end.
+# All the QUIPs go here
 ENV QUIP_ROOT /opt/quip
-ENV QUIP_INSTALLDIR ${QUIP_ROOT}/bin
-ENV PATH ${QUIP_INSTALLDIR}:${PATH}
 
 WORKDIR /opt/quip
 
-RUN git clone --depth 1 --recursive https://github.com/libAtoms/QUIP.git .
+# Clone QUIP repository (mesonify branch for meson build support)
+RUN git clone --depth 1 --recursive --branch mesonify https://github.com/libAtoms/QUIP.git .
 
 #################################################################################
-# Quip library for LAMMPS
+# Build QUIP with meson
 #################################################################################
 
-# lammps should be linked with SERIAL version of QUIP other configurations are
-# untested and too complicated for a user (mixed paralleisms).
-ENV QUIP_ARCH linux_x86_64_gfortran
-ADD Makefile.inc build/${QUIP_ARCH}/Makefile.inc
+# Build QUIP libraries with meson
+RUN meson setup builddir \
+ && meson compile -C builddir
 
-# Build only libquip for serial to keep a slim image.
-# Makefile.inc is also required to compile lammps.
-RUN make libquip > /dev/null \
- && find build/${QUIP_ARCH} -type f ! \( -name 'libquip.a' -o -name 'Makefile.inc' \) -delete
-
-
-#################################################################################
-# Quip with OpenMP
-#################################################################################
-
-ENV QUIP_ARCH linux_x86_64_gfortran_openmp
-ADD Makefile.inc build/${QUIP_ARCH}/Makefile.inc
-
-RUN make \
- && make install \
- && make install-quippy
+# Build and install quippy Python package
+RUN cd quippy \
+ && pip install --no-build-isolation .
 
 #################################################################################
 # End of the quip-gap image
@@ -238,15 +224,16 @@ ENV LAMMPS_PATH /opt/lammps
 ENV PATH ${LAMMPS_PATH}/src/:${PATH}
 
 # Build LAMMPS from github - faster and more reliable than from the website
-RUN git clone --branch stable --depth 1 https://github.com/lammps/lammps.git .
+RUN git clone --branch stable_29Sep2021_update3 --depth 1 https://github.com/lammps/lammps.git .
 
 # Build `shlib` objects first so they have `-fPIC` then symlink the directory
 # so they can be reused to build the binaries halving the compilation time.
-# Clean up Obj files immedaitely to keep image smaller.
+# Clean up Obj files immediately to keep image smaller.
+# Note: LAMMPS needs to be updated to link with meson-built QUIP libraries
 RUN cd src \
  && make yes-all \
  && make no-lib \
- && QUIP_ARCH=linux_x86_64_gfortran; make yes-ml-quip \
+ && make no-ml-quip \
  && make no-intel \
  && make yes-python \
  && make -j4 mpi mode=shlib \
@@ -255,6 +242,20 @@ RUN cd src \
  && make -j4 mpi \
  && make clean-all
 
+# TODO: Re-enable QUIP integration with LAMMPS after updating ml-quip package
+# to support meson-built QUIP libraries. The QUIP libraries are now in
+# ${QUIP_ROOT}/builddir/src/ instead of ${QUIP_ROOT}/build/${QUIP_ARCH}/
+
+##################################### 
+## RUST
+#####################################
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust.sh
+RUN chmod u+rx rust.sh
+RUN ./rust.sh -y
+ENV PATH /root/.cargo/bin:$PATH
+
+RUN pip install git+https://github.com/Luthaf/rascaline.git
 
 #################################################################################
 ## Data
@@ -302,5 +303,5 @@ ENV SHELL /bin/bash
 # Launch in the home directory of the user
 ADD files/demo.ipynb .
 
-CMD bash -c exit && jupyter notebook --ip=$(hostname -i) --port=8899 --allow-root
+CMD bash -c exit && jupyter lab --ip=$(hostname -i) --port=8899 --allow-root
 EXPOSE 8899

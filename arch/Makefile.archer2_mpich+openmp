@@ -1,0 +1,38 @@
+# HQ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# HQ X
+# H0 X   libAtoms+QUIP: atomistic simulation library
+# HQ X
+# HQ X   Portions of this code were written by
+# HQ X     Tamas K. Stenczel
+# HQ X
+# HQ X   Copyright 2022
+# HQ X
+# HQ X   working as of 17.08.2022
+# HQ X
+# HQ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# ACRHER2 computer cluster, United Kingdom
+#
+# recommended modules to use with this:
+# - GNU compilers version 11, python and FFTW
+# - obtain these with the following on Archer2
+#
+# updated module versions. Working as of 29.08.2023
+#
+# module switch PrgEnv-cray PrgEnv-gnu/8.3.3
+# module load cpe/22.12
+# module load cray-fftw/3.3.10.3
+# module load PrgEnv-gnu/8.3.3
+#
+# Notes:
+# - comms:
+#     This is the MPI build, so just use the default MPI module.
+#
+# - math linking options
+#     No need for defining anything, the `ftn` & `cc` compiler wrapper take
+#     care of that, using libsci.
+#
+
+include arch/Makefile.archer2
+include arch/Makefile.archer2_openmp
+include arch/Makefile.archer2_mpich

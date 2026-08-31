@@ -32,6 +32,9 @@ include Makefile.rules
 
 PY_VERSION=$(shell ${PYTHON} -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)")
 HAVE_PYTHON3=$(shell ${PYTHON} -c 'import sys; print(int(sys.version_info[0] >= 3))')
+ifeq (${PIP},)
+PIP=${PYTHON} -m pip
+endif
 
 QUIPPY_SRC_DIR := ../../quippy
 
@@ -40,12 +43,12 @@ CFLAGS = -fPIC ${QUIPPY_CFLAGS}
 
 
 # The following files will be wrapped
-LIBATOMS_SOURCES =  Atoms_types.f95 Atoms.f95 System.f95 Dictionary.f95 DynamicalSystem.f95 nye_tensor.f95
-POT_SOURCES =  Potential.f95 Potential_simple.f95
+LIBATOMS_SOURCES =  Atoms_types.F90 Atoms.F90 System.F90 Dictionary.F90 DynamicalSystem.F90 nye_tensor.F90
+POT_SOURCES =  Potential.F90 Potential_simple.F90
 ifeq (${HAVE_TB},1)
-	POT_SOURCES += TB.f95
+	POT_SOURCES += TB.F90
 endif
-GAP_SOURCES =  descriptors.f95
+GAP_SOURCES =  descriptors.F90
 
 LIBATOMS_FILES = $(addprefix ../../src/libAtoms/,${LIBATOMS_SOURCES})
 POT_FILES = $(addprefix ../../src/Potentials/,${POT_SOURCES})
@@ -83,7 +86,7 @@ F2PY_LINK_ARGS = $(shell ${PYTHON} -c 'import sys; print(" ".join([arg for arg i
 all: build
 
 f90wrap:
-	${PIP} install ${QUIPPY_INSTALL_OPTS} "f90wrap>=0.2.6"
+	${PIP} install ${QUIPPY_INSTALL_OPTS} "f90wrap>=0.3.0"
 
 clean:
 	rm -f _quippy${EXT_SUFFIX} ${F90WRAP_FILES} ${WRAP_FPP_FILES}
